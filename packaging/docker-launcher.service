@@ -1,0 +1,13 @@
+[Unit]
+Description=docker manager Server Daemon
+Requires=dbus.service
+
+[Service]
+SmackProcessLabel=System
+Type=simple
+ExecStart=/usr/bin/docker-launcher
+Restart=always
+RestartSec=0
+
+[Install]
+WantedBy=tizen-system.target
