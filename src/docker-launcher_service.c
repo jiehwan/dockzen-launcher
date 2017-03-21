@@ -9,6 +9,7 @@
 #define DOCKER_SERVICE_LIST "/usr/bin/docker service ls"
 
 #define DOCKER_SERVICE_CREATE "/usr/bin/docker service create --name tizen --replicas 1"
+#define DOCKER_SERVICE_MOUNT "--mount type=bind,source=/sys/fs/cgroup,destination=/sys/fs/cgroup,ro=1"
 #define DOCKER_SERVICE_UPDATE "/usr/bin/docker service update --image"
 
 #define DOCKER_SERVICE_IMG_ARGU "/sbin/init"
@@ -54,7 +55,7 @@ int createService(char *image_name)
 	int result = DOCKER_LAUNCHER_ERROR_NONE;
 
 	/* docker service create --name tizen --replicas 1 xxx sbin/init*/
-	sprintf(service, "%s %s %s",DOCKER_SERVICE_CREATE, image_name, DOCKER_SERVICE_IMG_ARGU);
+	sprintf(service, "%s %s %s %s",DOCKER_SERVICE_CREATE, DOCKER_SERVICE_MOUNT, image_name, DOCKER_SERVICE_IMG_ARGU);
 
 	printf("service is %s\n", service);
 	stream = popen(service, "r");
