@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "docker-launcher_dbus.h"
 #include "docker-launcher_service.h"
+#include "docker-launcher_engine.h"
 
 
 typedef enum
@@ -16,6 +17,16 @@ static GDBusNodeInfo *introspection_data = NULL;
 
 static int docker_launcher_loop(char *image_name , int cmd)
 {
+
+	while(1)
+	{
+		//if(checkDockerd() != -1)
+		//	break;
+		if(getDockerdStatus() == TRUE)
+			break;
+
+		sleep(1);
+	}
 
 	switch(cmd)
 	{

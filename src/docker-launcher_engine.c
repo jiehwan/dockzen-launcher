@@ -23,8 +23,7 @@ static int initSwarm(void)
 {
 	FILE *stream = NULL;
 	char buff[1024];
-	int swarmflag = SWARM_ACTIVE;
-	int result = DOCKER_LAUNCHER_ERROR_NONE;
+	int swarmflag = SWARM_INACTIVE;
 
 	printf("[docker_launcher]swarm init\n");
 	
@@ -40,9 +39,13 @@ static int initSwarm(void)
 				{
 					/* swarm inactive */
 					swarmflag = SWARM_INACTIVE;
+					printf("[docker_launcher] swarm inactive!!\n");
 				}
 				else
+				{
+					swarmflag = SWARM_ACTIVE;
 					printf("[docker_launcher] swarm active!!\n");
+				}
 
 				break;
 			}
@@ -54,18 +57,22 @@ static int initSwarm(void)
 			/* swarm init */
 			stream = popen(DOCKER_SWARM_INIT, "r");
 			if(stream != NULL)
+			{
+				//swarmflag = SWARM_ACTIVE;
 				pclose(stream);
+			}
+			else
+				printf("[docker_launcher] Cannot connect wifi or ethernet\n");
 
-			sleep(2);
+			sleep(1);
 		}
 	}
 	else
-	{
+	{		
 		printf("[docker_launcher] Cannot connect to the docker daemon\n"); 
-		result = DOCKER_LAUNCHER_ERROR_DAEMON;
 	}
 
-	return result;
+	return swarmflag;
 
 }
 
@@ -189,15 +196,46 @@ void *checkDockerdLoop(void *arg)
 			if(stream != NULL)
 				pclose(stream);
 
-			dockerd_running_status = TRUE;
 			sleep(5);
+			dockerd_running_status = TRUE;
 			
 		}
 		sleep(2);
 		
 	}
+
+	pthread_exit((void *) 0);
 	
 }
+
+void *checkSwarmLoop(void)
+{
+	pthread_detach(pthread_self());
+
+	while(1)
+	{
+	//	if(checkDockerd() != -1)
+	//		break;
+		if(dockerd_running_status == TRUE)
+			break;
+		
+		sleep(1);
+	}
+	
+	sleep(5);
+
+	printf("[docker-launcher] dockerd_running_status = %d\n", dockerd_running_status);
+	
+	while(1)
+	{
+		if(initSwarm() == SWARM_ACTIVE)
+			break;
+	}
+
+	pthread_exit((void *) 0);
+
+}
+
 
 int getDockerdStatus()
 {
@@ -221,6 +259,15 @@ int startDockerd(void)
 #endif
 }
 
+
+
+int startSwarm(void)
+{	
+	pthread_t threads;
+	printf("[docker-launcher] SWARM INIT!!!!!!\n");
+	pthread_create(&threads, NULL, &checkSwarmLoop, (void*)NULL);
+}
+
 int startDockerEngine(void)
 {
 
@@ -234,13 +281,8 @@ int startDockerEngine(void)
 
 	startDockerd();
 
-	//while(1)
-	//{
-	//	if(getDockerdStatus() == TRUE)
-	//		break;
-	//}
-
-	initSwarm();
+	printf("[docker-launcher] startSWARM !!!\n");
+	startSwarm();
 
 	return 0;
 }
