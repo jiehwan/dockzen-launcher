@@ -7,6 +7,11 @@
 #include "docker-launcher_engine.h"
 #include "docker-launcher_service.h"
 #include "docker-launcher_process.h"
+#include "docker-launcher_temp.h"
+
+
+#define WA_ENABLE_ARTIK7_WIFI
+
 
 int docker_launcher()
 {
@@ -29,9 +34,12 @@ int docker_launcher()
 
 int main(int arc, char * argv[])
 {
-
 	printf("docker launcher\n");
-	
+
+#if defined(WA_ENABLE_ARTIK7_WIFI)
+	check_network_connection();
+#endif
+
 	docker_launcher();
 
 	printf("docker process\n");
