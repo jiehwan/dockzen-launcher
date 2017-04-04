@@ -1,6 +1,7 @@
 [Unit]
 Description=docker manager Server Daemon
-Requires=dbus.service
+After=connman.service dbus.socket
+
 
 [Service]
 SmackProcessLabel=System
@@ -10,4 +11,4 @@ Restart=always
 RestartSec=0
 
 [Install]
-WantedBy=tizen-system.target
+WantedBy=multi-user.target
