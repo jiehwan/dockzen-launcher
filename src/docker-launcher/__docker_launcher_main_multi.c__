@@ -1,0 +1,183 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <sys/wait.h>
+
+#include <signal.h>
+#include "docker_launcher_statemachine.h"
+#include "docker_launcher_engine.h"
+#include "docker_launcher_parser.h"
+
+
+#define SERVER	"/var/run/docker_launcher.sock"
+#define MAXLINE 1024
+
+struct _capi_table_s
+{
+	char cmd[128];
+	char function[128];
+};
+
+typedef struct _capi_table_s capi_table;
+
+capi_table capi_mapping_tables[] =
+{
+	{"info","dockerl_info"},
+	{"dockerinfo", "dockerl_docker_info"},
+	{"end", "end"}
+};
+
+
+#if 0
+char capi_cmd_table[][]=
+{
+	"info",
+	"dockerinfo",
+	"end"
+}
+char capi_function_table[][]=
+{
+	""
+}
+#endif
+
+void child_process_sig(int signo)
+{
+	wait(0);
+}
+
+int server_init(int *server_fd)
+{
+	int state;	
+	int server_sockfd;
+	struct sockaddr_un serveraddr;
+
+	signal(SIGCHLD, child_process_sig); 
+
+	if(access(SERVER, F_OK) == 0)
+	{
+		unlink(SERVER);
+	}
+	
+	if((server_sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
+	{
+		printf("socket error !!! \n");
+		return -1;
+	}	
+
+	bzero(&serveraddr, sizeof(serveraddr));
+	serveraddr.sun_family = AF_UNIX;
+	strcpy(serveraddr.sun_path, SERVER);
+
+	state = bind(server_sockfd, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
+	if(state == -1)
+	{
+		printf("bind error !\n");
+		return -1;
+	}
+
+	state = listen(server_sockfd, 5);
+	if(state == -1)
+	{	
+		printf("listen error !!! \n");
+		return -1;
+	}
+
+	(*server_fd) = server_sockfd;
+
+}
+
+int dockerl_init()
+{
+	int ret = 0;
+	
+	setStatemachine(STATEMACHINE_INIT);
+
+	ret = dockerl_engine_start();
+	if(ret != 0)
+	{
+		/* Error routine*/
+//		setStatemachine(
+	}
+	ret = dockerl_swarm_active();
+
+
+	if(ret != 0)
+	{
+		/* Error routine */
+	}
+
+}
+
+
+
+
+int mainloop(int server_fd)
+{
+	struct sockaddr_un clientaddr;
+	int client_len;
+	pid_t pid;
+	int client_sockfd;
+	char buf[MAXLINE];
+	char data[MAXLINE];
+	
+	client_len = sizeof(clientaddr);
+	
+	while(1)
+	{
+		client_sockfd = accept(server_fd, (struct sockaddr *)&clientaddr, &client_len);
+
+		if(client_sockfd == -1)
+		{
+			printf("Accept error : ");
+			return -1;
+		}
+
+		while(1)
+		{		
+	
+			memset(buf, 0x00, MAXLINE);
+			if(read(client_sockfd, buf, MAXLINE) <= 0) 
+			{
+				close(client_sockfd);
+				break;
+			}
+				
+			printf("SERVER-> %s\n", buf);
+									
+			dockerl_capi_mainloop(client_sockfd, buf, data);
+
+			printf("%d client byebye !!!\n", client_sockfd);
+			close(client_sockfd);
+			break;
+
+		}
+		
+	}
+
+	close(client_sockfd);	
+	
+	return 0;
+}
+
+
+int main(int argc, char * argv[])
+{
+	int server_fd;
+	struct sockaddr_un clientaddr;
+	int client_len;
+
+	printf("[docker-launcher] start !\n");
+
+	dockerl_init();
+	server_init(&server_fd);
+
+	dockerl_state_check(server_fd);
+	
+	mainloop(server_fd);
+	
+}
