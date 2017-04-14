@@ -1,6 +1,8 @@
 #ifndef __DOCKER_LAUNCHER_ERROR_H__
 #define __DOCKER_LAUNCHER_ERROR_H__
 
+
+
 typedef enum
 {
 	DOCKER_LAUNCHER_ERROR_NONE = 0,		/* Successful */
@@ -9,6 +11,7 @@ typedef enum
 	DOCKER_LAUNCHER_ERROR_DAEMON,		/* docker daemon error*/
 	DOCKER_LAUNCHER_ERROR_NETWORK,		/* network error */
 	DOCKER_LAUNCHER_ERROR_SYSTEM,		/* system error */
+	DOCKER_LAUNCHER_ERROR_SWARM,
 	DOCKER_LAUNCHER_ERROR_UNKNOWN		/* unknown error */
 } docker_LAUNCHER_error_e;
 

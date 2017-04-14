@@ -23,6 +23,7 @@ BuildRequires:  pkgconfig(cynara-client)
 BuildRequires:  pkgconfig(cynara-session)
 BuildRequires:  pkgconfig(cynara-creds-gdbus)
 BuildRequires:  pkgconfig(mused)
+BuildRequires:  pkgconfig(libcurl)
 BuildRequires:  pkgconfig(capi-network-wifi)
 Requires(post): /usr/bin/getent, /usr/sbin/useradd, /usr/sbin/groupadd
 Requires(post): /sbin/ldconfig, /usr/bin/systemctl
@@ -90,6 +91,6 @@ ln -s ../docker-launcher.service %{buildroot}/usr/lib/systemd/system/multi-user.
 %files client
 %manifest %{name}-client.manifest
 %defattr(-,root,root,-)
-%{_bindir}/docker-launcher-client*
+%{_bindir}/dockerl*
 %license LICENSE.APLv2
 

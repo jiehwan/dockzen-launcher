@@ -5,11 +5,14 @@ SET(DOCKER_LAUNCHER_SERVER "docker-launcher")
 FILE(GLOB DOCKER_LAUNCHER_SERVER_SRCS *.c )
 
 INCLUDE(FindPkgConfig)
-pkg_check_modules(server_pkgs REQUIRED dlog glib-2.0 gio-2.0 capi-network-wifi )
+pkg_check_modules(server_pkgs REQUIRED dlog glib-2.0 gio-2.0 capi-network-wifi 
+libcurl)
 INCLUDE_DIRECTORIES(${server_pkgs_INCLUDE_DIRS})
 LINK_DIRECTORIES(${server_pkgs_LIBRARY_DIRS})
 
 
 ADD_EXECUTABLE(${DOCKER_LAUNCHER_SERVER} ${DOCKER_LAUNCHER_SERVER_SRCS})
-TARGET_LINK_LIBRARIES(${DOCKER_LAUNCHER_SERVER}  ${server_pkgs_LIBRARIES} pthread )
+TARGET_LINK_LIBRARIES(${DOCKER_LAUNCHER_SERVER}  ${server_pkgs_LIBRARIES} pthread 
+curl
+)
 INSTALL(TARGETS ${DOCKER_LAUNCHER_SERVER} DESTINATION ${BIN_INSTALL_DIR})
