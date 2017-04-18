@@ -35,6 +35,7 @@ void dockerl_create(int client_sockfd, char *cmd, int count, char *argv[])
 	char cmd_line[MAXLINE];
 	char *cmd_line_ptr;
 	char buf_get[MAXLINE];
+	char buf_set[10];
 	int i = 0;
 
 	cmd_line_ptr = cmd_line;
@@ -51,12 +52,14 @@ void dockerl_create(int client_sockfd, char *cmd, int count, char *argv[])
 	}
 	
 	printf("client> %s\n", cmd_line);
-
 	
+	sprintf(buf_set, "%d ", strlen(cmd_line));
+	write(client_sockfd, buf_set, strlen(buf_set));
 	write(client_sockfd, cmd_line, strlen(cmd_line));
 
 	printf("server read!!\n");
 
+#if 0
 	while(1)
 	{
 		memset(buf_get, 0x00, MAXLINE);
@@ -68,7 +71,8 @@ void dockerl_create(int client_sockfd, char *cmd, int count, char *argv[])
 			break;
 		}
 	}
-	
+#endif
+
 	return 0;
 	
 }
@@ -110,42 +114,97 @@ int dockerl_docker_info(int client_sockfd, char *cmd)
 	
 }
 
+
+int getStringSize(char * buf)
+{
+	int size;
+	int i = 0;
+
+	size = strlen(buf);
+
+	for(i = 0; i<size; i++)
+	{
+		if(buf[i] == ' ')
+			break;
+	}
+	i++;
+
+	return strlen(buf+i);
+	
+}		
+
 void dockerl_containersInfo(int client_sockfd, char *cmd)
 {
-	char buf_get[5012];
+	char buf_get[MAXLINE];
 	char buf_set[MAXLINE];
 	stcontainer container;
 	int size = 0;
 	int i = 0;
+	int string_size;
+	int command_size;
+	int buf_size = 0;
+	int buf_size_length;
+	int read_size;
 
-	sprintf(buf_set, "%d ", strlen(cmd));
+//	sprintf(buf_set, "%d ", strlen(cmd));
 	
-	printf("size = %s\n", buf_set);
-	write(client_sockfd, buf_set, strlen(buf_set));
+//	printf("size = %s\n", buf_set);
+//	write(client_sockfd, buf_set, strlen(buf_set));
 	
-	sprintf(buf_set, "%s", cmd);		
+	sprintf(buf_set, "{\"command\":\"%s\"}", cmd);		
 	write(client_sockfd, buf_set, strlen(buf_set));
 
 	printf("client> %s\n", buf_set);
 
 	printf("server read!!!\n");
 
+	//memset(buf_get, 0x00, MAXLINE);
+	buf_get[MAXLINE-1] = '\0';
+
 	while(1)
 	{
-		memset(buf_get, 0x00, MAXLINE);
-
-		if(read(client_sockfd, buf_get, 5012) <= 0)
+		if(read(client_sockfd, buf_get, MAXLINE) <= 0)
 		{
 			continue;
 		}
-		
-		printf("data-> %s\n", buf_get);
 
-//		if(!strncmp(buf_get + (strlen(buf_get) - strlen("end")), "end", strlen("end")))
+		printf("SERVER-> %s", buf_get);
+#if 0
+		while(1)
 		{
-			break;
+			if(read(client_sockfd, buf_get, MAXLINE) <=0)
+				break;
+
+			printf("%s", buf_get);
 		}
+#if 0
+		string_size = atoi(buf_get);
+		command_size = getStringSize(buf_get);
+		buf_size = strlen(buf_get);
+		buf_size_length = buf_size - command_size;
+		
+		printf("string_size = %d, command_size = %d, buf_size = %d\n", string_size, command_size, buf_size);
+		printf("%s", buf_get + buf_size_length);
+
+		while(1)
+		{						
+			if(command_size > MAXLINE)
+				command_size = MAXLINE - buf_size_length;
+			
+			if(command_size >= string_size)
+				break;
+
+			read_size = read(client_sockfd, buf_get, MAXLINE);
+			command_size += read_size;
+			printf("buf_size = %d\n", read_size);
+			printf("%s", buf_get);	
+		}
+#endif
+		printf("\n");
+#endif
+		break;
 	}
+
 	
 	return 0;
 	
@@ -252,7 +311,7 @@ int main(int argc, char *argv[])
 	}
 	else if(!strncmp(argv[1], "containers", strlen("containers")))
 	{
-		dockerl_containersInfo(client_sockfd, "getContainersInfo");
+		dockerl_containersInfo(client_sockfd, "GetContainersInfo");
 	}
 	else if(!strncmp(argv[1], "restart", strlen("restart")))
 	{

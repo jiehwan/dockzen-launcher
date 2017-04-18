@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include "docker_launcher_enum.h"
 #include "docker_launcher_connect.h"
+#include "docker_launcher_json.h"
 
 #define DOCKER_SERVICE_CREATE "/usr/bin/docker service create --replicas 1"
 #define DOCKER_SERVICE_UPDATE "/usr/bin/docker service update --image"
@@ -57,6 +58,8 @@ int dockerl_create_service(int client_fd, char *options)
 
 	DOCKER *docker;
 	CURLcode response;
+
+	printf("%s", options);
 #if 0
 	FILE *stream = NULL;
 	char service[1024];
@@ -119,7 +122,12 @@ int dockerl_containers_Info(int client_fd)
 	DOCKER *docker;
 	CURLcode response;
 	char buf[1024];
+	JSON json = {0,};
+	int ret= 0;
 
+
+	printf("[%s][%d] dockerl_containers_info start !!!\n", __FUNCTION__, __LINE__);
+	
 	docker = dockerl_docker_init();
 
 	if(docker)
@@ -129,10 +137,14 @@ int dockerl_containers_Info(int client_fd)
 		if(response == CURLE_OK)
 		{
 
-			sprintf(buf, "%d ", docker->buffer->size);
-			write(client_fd, buf, strlen(buf));
-			write(client_fd, dockerl_docker_buffer(docker), docker->buffer->size);
-			
+			//sprintf(buf, "%d ", docker->buffer->size);
+			//write(client_fd, buf, strlen(buf));			
+			//write(client_fd, dockerl_docker_buffer(docker), docker->buffer->size);
+			printf("dockerd SERVER-> %s\n", dockerl_docker_buffer(docker));
+			dockerl_parseJSON(dockerl_docker_buffer(docker), docker->buffer->size, &json);
+			printf("makeJSON Start!!\n");
+			dockerl_containersInfo_makeJSON(&json, client_fd);
+			dockerl_freeJSON(&json);
 		}
 		else
 		{
