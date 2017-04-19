@@ -5,8 +5,7 @@ SET(DOCKER_LAUNCHER_SERVER "docker-launcher")
 FILE(GLOB DOCKER_LAUNCHER_SERVER_SRCS *.c )
 
 INCLUDE(FindPkgConfig)
-pkg_check_modules(server_pkgs REQUIRED dlog glib-2.0 gio-2.0 capi-network-wifi 
-libcurl)
+pkg_check_modules(server_pkgs REQUIRED dlog glib-2.0 gio-2.0 capi-network-wifi libcurl json-c)
 INCLUDE_DIRECTORIES(${server_pkgs_INCLUDE_DIRS})
 LINK_DIRECTORIES(${server_pkgs_LIBRARY_DIRS})
 

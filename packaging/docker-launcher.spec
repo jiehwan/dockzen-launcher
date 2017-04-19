@@ -25,6 +25,7 @@ BuildRequires:  pkgconfig(cynara-creds-gdbus)
 BuildRequires:  pkgconfig(mused)
 BuildRequires:  pkgconfig(libcurl)
 BuildRequires:  pkgconfig(capi-network-wifi)
+BuildRequires:  pkgconfig(json-c)
 Requires(post): /usr/bin/getent, /usr/sbin/useradd, /usr/sbin/groupadd
 Requires(post): /sbin/ldconfig, /usr/bin/systemctl
 Requires(postun): /sbin/ldconfig, /usr/bin/systemctl
