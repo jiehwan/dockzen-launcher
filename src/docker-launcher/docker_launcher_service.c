@@ -5,6 +5,12 @@
 #include "docker_launcher_connect.h"
 #include "docker_launcher_json.h"
 
+/////////////////////////////////////	Using json-c Testing
+#include "json.h"
+char * dockerl_json_generate_containers(char *str);
+//////////////////////////////////////
+
+
 #define DOCKER_SERVICE_CREATE "/usr/bin/docker service create --replicas 1"
 #define DOCKER_SERVICE_UPDATE "/usr/bin/docker service update --image"
 #define DOCKER_SERVICE_LIST "/usr/bin/docker service ls"
@@ -137,6 +143,7 @@ int dockerl_containers_Info(int client_fd)
 		if(response == CURLE_OK)
 		{
 
+#if 0
 			//sprintf(buf, "%d ", docker->buffer->size);
 			//write(client_fd, buf, strlen(buf));			
 			//write(client_fd, dockerl_docker_buffer(docker), docker->buffer->size);
@@ -145,6 +152,22 @@ int dockerl_containers_Info(int client_fd)
 			printf("makeJSON Start!!\n");
 			dockerl_containersInfo_makeJSON(&json, client_fd);
 			dockerl_freeJSON(&json);
+#else
+			/////////////////////////////////////	Using json-c Testing
+			{
+				char *jsonbuf = NULL;
+
+				jsonbuf = dockerl_json_generate_containers(docker->buffer->data);
+				if(jsonbuf){
+					printf("<dockerl_containers_Info> jObj from str:\n---\n%s\n---\n", jsonbuf);
+				}
+				else {
+					printf("dockerl_json_generate_containers is failed................\n");
+				}
+				write(client_fd, jsonbuf, strlen(jsonbuf));
+			}
+			/////////////////////////////////////
+#endif
 		}
 		else
 		{
@@ -179,4 +202,105 @@ int dockerl_restart_container(char * containerID)
 	}
 	
 	return 0;
+}
+
+
+
+/////////////////////////////////////	Using json-c Testing
+// ToDo : free json object
+
+// extract the json data from old json ojbect, then add this into new json object with desinged name
+static void dockerl_json_add_new_from_old(json_object* jObj, const char *key, json_object* newObj, const char *newkey)
+{
+	struct json_object *returnObj, *tObj;
+	enum json_type type;
+
+	if(json_object_object_get_ex(jObj, key, &returnObj))
+	{
+		type = json_object_get_type(returnObj);
+
+
+		if(type == json_type_string){			
+			json_object_object_add(newObj, newkey, returnObj); 
+		}
+		else if(type == json_type_array){
+			tObj = json_object_array_get_idx(returnObj, 0);
+			type = json_object_get_type(tObj);
+			if(type == json_type_string){
+				json_object_object_add(newObj, newkey, tObj); 
+			}
+			else
+				printf("%s:%d check json-object-type(%d) in key(%s)\n",  __FUNCTION__, __LINE__, type, key);
+		}
+		else
+			printf("%s:%d check json-object-type(%d) in key(%s)\n",  __FUNCTION__, __LINE__, type, key);
+	}
+
+	return;
+}
+
+// make json data body
+static struct json_object* dockerl_json_create_containers(json_object* jObj)
+{
+	struct json_object *newObj = json_object_new_object();
+
+	dockerl_json_add_new_from_old(jObj, "Id", newObj, "containerId");
+	dockerl_json_add_new_from_old(jObj, "Names", newObj, "containerName");
+	dockerl_json_add_new_from_old(jObj, "Image", newObj, "imageName");
+	dockerl_json_add_new_from_old(jObj, "State", newObj, "containerStatus");
+
+	//printf("jObj from str:\n---\n%s\n---\n", json_object_to_json_string_ext(newObj, JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY));
+
+	return newObj;
+}
+
+
+// generate json object for csa interface
+// for each command, need to change dockerl_json_create_xxx and adding header in the end of this
+char * dockerl_json_generate_containers(char *str) 
+{
+	struct json_object *inputObj,*inputArrayObj;	// json object from input string
+	struct json_object *bodyObj = NULL;		// data body json object
+	struct json_object *bodyProcessingObj;	// for processing usage
+	struct json_object *returnObj = NULL;	// final json object
+
+	enum json_type type;
+	char *ret_buf = NULL;
+
+	inputObj = json_tokener_parse(str);
+	//printf("inputObj from str:\n---\n%s\n---\n", json_object_to_json_string_ext(inputObj, JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY));
+
+	type = json_object_get_type(inputObj);
+
+	if(type == json_type_object)
+	{
+	  	int index = 0;
+
+	  	bodyObj = dockerl_json_create_containers(inputObj);
+	}
+	else if(type == json_type_array)
+	{
+		int cnt = json_object_array_length (inputObj);
+		int index = 0;
+		struct json_object* arrayObj;
+
+		arrayObj = json_object_new_array();
+		do{
+			inputArrayObj =  json_object_array_get_idx(inputObj, index++);
+			bodyProcessingObj = dockerl_json_create_containers(inputArrayObj);
+			json_object_array_add (arrayObj, bodyProcessingObj);
+		}while(index < cnt);
+
+		bodyObj = arrayObj;
+	}
+
+	if(bodyObj)
+	{
+		returnObj = json_object_new_object();
+		json_object_object_add(returnObj, "command",  json_object_new_string("GetContainersInfo"));		// add "command" object
+		json_object_object_add(returnObj, "containers", bodyObj);				// add body object
+		ret_buf = json_object_to_json_string_ext(returnObj, JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY);
+	}
+
+	return ret_buf;
 }
