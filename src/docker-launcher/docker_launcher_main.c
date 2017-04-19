@@ -28,7 +28,7 @@ int server_init(int *server_fd)
 	
 	if((server_sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
 	{
-		printf("socket error !!! \n");
+		printf("[%s][%d][docker-launcher] socket error !!! \n", __FUNCTION__, __LINE__);
 		return -1;
 	}	
 
@@ -39,14 +39,14 @@ int server_init(int *server_fd)
 	state = bind(server_sockfd, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
 	if(state == -1)
 	{
-		printf("bind error !\n");
+		printf("[%s][%d][docker-launcher] bind error !\n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 
 	state = listen(server_sockfd, 5);
 	if(state == -1)
 	{	
-		printf("listen error !!! \n");
+		printf("[%s][%d][docker-launcher] listen error !!! \n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 
@@ -59,7 +59,7 @@ void dockerl_engine_mainloop()
 	int ret = 0;
 	pthread_detach(pthread_self());
 
-	printf("test!!! thread!!! OK\n");
+	printf("[%s][%d][docker-launcher] engine OK\n", __FUNCTION__, __LINE__);
 	
 
 	while(1)
@@ -96,7 +96,7 @@ void dockerl_state_mainloop(void)
 {
 	pthread_detach(pthread_self());
 
-	printf("state pthread !! ok!!\n");
+	printf("[%s][%d][docker-launcher] state ok!!\n", __FUNCTION__, __LINE__);
 
 	dockerl_state_check();
 	
@@ -121,14 +121,17 @@ int getStringSize(char * buf)
 	
 }
 
+#if 0
 int mainloop(int server_fd)
 {
 	struct sockaddr_un clientaddr;
 	int client_len;
 	pid_t pid;
 	int client_sockfd;
-	int string_size = 0;
-	int buf_size = 0;
+	int string_size = 0;	 // ex : buf -> "123 getxxxxx..." : getxxxxx total length
+	int buf_size = 0;	     // ex : buf -> "123 getxxxxxxxx...." : total length
+	int command_size = 0;
+	int buf_size_length = 0; // ex : 123 length : 3
 	
 	char buf[MAXLINE];
 	char *command;
@@ -147,7 +150,7 @@ int mainloop(int server_fd)
 
 		if(client_sockfd == -1)
 		{
-			printf("Accept error : ");
+			printf("[%s][%d][docker-launcher]Accept error : ", __FUNCTION__, __LINE__);
 			return -1;
 		}
 
@@ -158,53 +161,152 @@ int mainloop(int server_fd)
 			close(client_sockfd);
 			continue;
 		}
-		//buf[1] = '\0';
-		string_size = atoi(buf);
-		//buf_size = getStringSize(buf);
-		buf_size = strlen(buf);
-
-		printf("string_size = %d, buf_size = %d\n", string_size, buf_size);
 		
-		if(buf_size > string_size)
+		
+		string_size = atoi(buf);
+
+		if(string_size == 0)
 		{
-			//additional routine
-			/*
-			if(read(client_sockfd, buf, MAXLINE) <= 0) 
+			printf("[%s][%d] Error File Size Zero\n", __FUNCTION__, __LINE__);
+			close(client_sockfd);
+			continue;
+		}
+		
+		command_size = getStringSize(buf);
+		buf_size = strlen(buf);
+		printf("buf = %s, buf_size = %d\n", buf, buf_size);
+		
+		command = (char *) malloc(string_size + 1);
+		if(command == NULL)
+		{
+			printf("[%s][%d][docker-launcher] Fail memory allocation!!\n", __FUNCTION__, __LINE__);
+			write(client_sockfd, "500", strlen("500"));
+			close(client_sockfd);
+			continue;
+		}
+		
+		buf_size_length = abs(buf_size - command_size);
+
+		sprintf(command, "%s", buf + buf_size_length);
+	
+		printf("buf_size_length=%d, command_size = %d, string_size = %d, command = %s\n",buf_size_length, command_size, string_size, command);
+		printf("buf = %s\n", buf + buf_size_length);
+		
+		if(command_size < string_size)
+		{
+			if(read(client_sockfd, buf, string_size - command_size) <=0)
 			{
+				/* client error */
+				write(client_sockfd, "700", strlen("700"));
+				printf("[%s][%d][docker-launcher] Error client data \n", __FUNCTION__, __LINE__);
 				close(client_sockfd);
 				continue;
 			}
 			
-			if(size <= 0)
-			{
-				close(client_sockfd);
-				continue;
+			buf_size = strlen(buf);
+
+			if(command_size + buf_size == string_size)
+			{				
+				sprintf(command + command_size, "%s", buf);				
+				command_size += buf_size;				
 			}
-			*/
+			else
+			{
+				printf("[%s][%d][docker-launcher] Error client data !!!!\n", __FUNCTION__, __LINE__);
+				write(client_sockfd, "700", strlen("700"));
+				close(client_sockfd);
+				break;
+			}
+
 		}
 		
-		//printf("buf = %s, size = %d\n", buf, size);
-
-		if(getStatemachine() == STATEMACHINE_IDLE)
-		{
-			printf("SERVER-> %s\n", buf + (buf_size - string_size));
-									
-			dockerl_capi_mainloop(client_sockfd, buf +(buf_size - string_size));
+		if(command_size == string_size)
+		{			
+			if(getStatemachine() == STATEMACHINE_IDLE)
+			{
+				printf("SERVER-> %s\n", command);
+										
+				dockerl_capi_mainloop(client_sockfd, command);
+			}
+			else
+			{
+				write(client_sockfd, "300", strlen("300"));
+			}
+			printf("%d client byebye !!!\n", client_sockfd);
+			close(client_sockfd);
 		}
-		else
-		{
-			write(client_sockfd, "Daemon Fail", strlen("Daemon Fail"));
-		}
-		//write(client_sockfd, "end", strlen("end"));
-		printf("%d client byebye !!!\n", client_sockfd);
-		close(client_sockfd);
 
-		
+		if(command != NULL)
+		{
+			free(command);
+			command = NULL;
+		}
 	}
-
 	
 	return 0;
 }
+#else
+int mainloop(int server_fd)
+{
+	struct sockaddr_un clientaddr;
+	int client_len;
+	pid_t pid;
+	int client_sockfd;
+	int string_size = 0;	 // ex : buf -> "123 getxxxxx..." : getxxxxx total length
+	int buf_size = 0;	     // ex : buf -> "123 getxxxxxxxx...." : total length
+	int command_size = 0;
+	int buf_size_length = 0; // ex : 123 length : 3
+	
+	char buf[MAXLINE];
+	char *command;
+	pthread_t engine_thread, state_thread;
+	
+	client_len = sizeof(clientaddr);
+	
+	pthread_create(&state_thread, NULL, &dockerl_state_mainloop, (void*)NULL);
+	pthread_create(&engine_thread, NULL, &dockerl_engine_mainloop, (void*)NULL);
+
+	
+	while(1)
+	{			
+		
+		client_sockfd = accept(server_fd, (struct sockaddr *)&clientaddr, &client_len);
+
+		if(client_sockfd == -1)
+		{
+			printf("[%s][%d][docker-launcher]Accept error : ", __FUNCTION__, __LINE__);
+			return -1;
+		}
+
+		memset(buf, 0x00, MAXLINE);
+
+		if(read(client_sockfd, buf, MAXLINE) <= 0)
+		{
+			close(client_sockfd);
+			continue;
+		}		
+		
+		printf("SERVER-> %s\n", buf);		
+		
+		if(getStatemachine() == STATEMACHINE_IDLE)
+		{
+			printf("SERVER-> %s\n", buf);
+									
+			dockerl_capi_mainloop(client_sockfd, buf);
+		}
+		else
+		{
+			printf("[%s][%d][docker-launcher] Fail docker-launcher\n", __FUNCTION__, __LINE__);
+		}
+		printf("%d client byebye !!!\n", client_sockfd);
+		close(client_sockfd);
+		
+	}
+	
+	return 0;
+}
+
+#endif
 
 int main(int argc, char * argv[])
 {
@@ -212,12 +314,9 @@ int main(int argc, char * argv[])
 	struct sockaddr_un clientaddr;
 	int client_len;
 
-	printf("[docker-launcher] start !\n");
+	printf("[%s][%d][docker-launcher] start !\n", __FUNCTION__, __LINE__);
 
 	server_init(&server_fd);
-
-	//dockerl_state_check(server_fd);
 	
 	mainloop(server_fd);
-	
 }

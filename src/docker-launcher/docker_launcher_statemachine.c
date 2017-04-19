@@ -37,7 +37,7 @@ static int getProcessPid(char *str)
 
 	if(!dp)
 	{
-		printf("proc error !!\n");
+		printf("[%s][%d][docker-launcher] proc error !!\n", __FUNCTION__, __LINE__);
 		return -1;
 	}
 
